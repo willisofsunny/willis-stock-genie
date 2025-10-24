@@ -35,6 +35,49 @@ class FinGeniusApp {
         this.bindApiConfigEvents();
         this.showWelcomeMessage();
         this.updateConnectionStatus();
+        this.startRenderKeepalive();  // 啟動 Render 預熱機制
+    }
+
+    startRenderKeepalive() {
+        /**
+         * 定期預熱 Render 後端，防止自由層進程睡眠
+         * Render 自由層會在 15 分鐘無活動後進入睡眠，
+         * 這個機制每 10 分鐘發送一個 health 請求保持活躍
+         */
+        if (!CONFIG.KEEPALIVE.ENABLED) return;
+
+        // 立即發送一次預熱請求
+        this.warmupRenderBackend();
+
+        // 設置定期預熱
+        setInterval(() => {
+            this.warmupRenderBackend();
+        }, CONFIG.KEEPALIVE.INTERVAL);
+    }
+
+    async warmupRenderBackend() {
+        /**
+         * 發送 health check 請求以保持 Render 進程活躍
+         */
+        try {
+            const baseUrl = CONFIG.API.getBaseUrl();
+            const healthUrl = `${baseUrl}${CONFIG.KEEPALIVE.ENDPOINT}`;
+
+            const response = await fetch(healthUrl, {
+                method: 'GET',
+                cache: 'no-store',
+                headers: {
+                    'X-Keepalive': 'true'
+                }
+            });
+
+            if (response.ok) {
+                console.log('✅ Render 後端預熱成功');
+            }
+        } catch (error) {
+            // 預熱失敗不影響應用，只記錄到控制台
+            console.log('⚠️ Render 預熱請求失敗（可能後端休眠中）:', error.message);
+        }
     }
 
     bindEvents() {

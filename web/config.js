@@ -43,6 +43,16 @@ const CONFIG = {
 
         // 分析超時時間（毫秒）
         ANALYSIS_TIMEOUT: 300000  // 5 分鐘
+    },
+
+    // Render 預熱配置 - 防止自由層進程睡眠
+    KEEPALIVE: {
+        // 是否啟用預熱機制
+        ENABLED: true,
+        // 預熱間隔（毫秒） - 每 10 分鐘預熱一次
+        INTERVAL: 600000,
+        // 預熱端點
+        ENDPOINT: '/health'
     }
 };
 
