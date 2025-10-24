@@ -719,8 +719,19 @@ class WillisStockGenieWebServer:
 # FastAPI 應用程式
 if HAS_FASTAPI:
     import os
+    from fastapi.middleware.cors import CORSMiddleware
 
     app = FastAPI(title="Willis Stock Genie", version="1.0.0")
+
+    # 配置 CORS
+    cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # 獲取當前目錄的絕對路徑
     current_dir = os.path.dirname(os.path.abspath(__file__))
