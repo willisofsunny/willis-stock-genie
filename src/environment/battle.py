@@ -362,38 +362,47 @@ class BattleEnvironment(BaseEnvironment):
                 logger.info(f"Sent comprehensive research context to {agent_id}")
 
     async def _run_structured_debate(self) -> None:
-        """Run structured debate rounds with cumulative context passing."""
+        """Run structured debate rounds with parallel agent execution."""
         import time
         debate_start_time = time.time()
 
         # 简化为单轮辩论，避免无限循环
         self.state.current_round = 1
-        logger.info(f"🗣️ Starting single round debate with {len(self.state.agent_order)} agents")
+        logger.info(f"🗣️ Starting single round debate with {len(self.state.agent_order)} agents (parallel mode)")
 
-        # 每个专家发言一次
+        # 发送所有代理的辩论指导（准备阶段）
+        logger.info("📝 Sending debate instructions to all agents...")
         for speaker_index, agent_id in enumerate(self.state.agent_order):
-            agent_start_time = time.time()
-            if not self.state.can_agent_speak(agent_id):
-                logger.warning(f"⚠️ {agent_id} cannot speak (terminated)")
-                continue
-                
-            self.state.current_speaker_index = speaker_index
-            
-            logger.info(f"📢 {agent_id} turn to speak (#{speaker_index + 1})")
-            
-            # 为当前发言者提供辩论指导
-            await self._send_debate_instruction(agent_id, speaker_index, 0)
-            
-            # 执行单个专家的发言轮次
-            await self._run_single_agent_debate_turn(agent_id)
+            if self.state.can_agent_speak(agent_id):
+                await self._send_debate_instruction(agent_id, speaker_index, 0)
 
-            # 記錄每個專家發言耗時
-            agent_elapsed = time.time() - agent_start_time
-            logger.info(f"⏱️ {agent_id} debate turn took {agent_elapsed:.2f} seconds")
+        # 并行执行所有专家的发言轮次
+        logger.info("🎤 Running all agent debates in parallel...")
+        debate_tasks = []
+        for speaker_index, agent_id in enumerate(self.state.agent_order):
+            if self.state.can_agent_speak(agent_id):
+                self.state.current_speaker_index = speaker_index
+                logger.info(f"📢 {agent_id} initiating debate (#{speaker_index + 1})")
+                # 创建并发任务，而不是等待
+                task = asyncio.create_task(self._run_single_agent_debate_turn(agent_id))
+                debate_tasks.append((agent_id, task))
+            else:
+                logger.warning(f"⚠️ {agent_id} cannot speak (terminated)")
+
+        # 等待所有辩论任务完成
+        logger.info(f"⏳ Waiting for all {len(debate_tasks)} agents to complete debate...")
+        for agent_id, task in debate_tasks:
+            agent_start_time = time.time()
+            try:
+                await task
+                agent_elapsed = time.time() - agent_start_time
+                logger.info(f"⏱️ {agent_id} debate turn took {agent_elapsed:.2f} seconds")
+            except Exception as e:
+                logger.error(f"❌ {agent_id} debate task failed: {str(e)}")
 
         # 記錄整個辯論階段耗時
         debate_elapsed = time.time() - debate_start_time
-        logger.info(f"⏱️ ===== Total debate phase took {debate_elapsed:.2f} seconds =====")
+        logger.info(f"⏱️ ===== Total debate phase took {debate_elapsed:.2f} seconds (parallel) =====")
 
     async def _send_debate_instruction(self, current_agent_id: str, speaker_index: int, round_num: int) -> None:
         """Send specific debate instruction to current speaker."""
@@ -500,24 +509,36 @@ class BattleEnvironment(BaseEnvironment):
                 logger.warning(f"⚠️ {agent_id} cannot vote: {'terminated' if agent_id in self.state.terminated_agents else 'unknown reason'}")
         
         logger.info(f"📊 Eligible voters: {eligible_voters} (total: {len(eligible_voters)})")
-        
-        # 为所有合格的分析师发送投票指令
-        for agent_id in eligible_voters:
-            voter_start_time = time.time()
 
+        # 为所有合格的分析师发送投票指令（准备阶段）
+        logger.info("📮 Sending voting instructions to all eligible voters...")
+        for agent_id in eligible_voters:
             # 检查是否已有最终投票
             if agent_id in self.state.final_votes:
                 logger.info(f"✅ {agent_id} has final vote: {self.state.final_votes[agent_id]} - allowing update")
             else:
                 logger.info(f"🗳️ {agent_id} needs to cast final vote")
 
-            logger.info(f"🗳️ Requesting vote from {agent_id}")
             await self._send_voting_instruction(agent_id)
-            await self._run_single_agent_voting_turn(agent_id)
 
-            # 記錄每個投票者耗時
-            voter_elapsed = time.time() - voter_start_time
-            logger.info(f"⏱️ {agent_id} voting turn took {voter_elapsed:.2f} seconds")
+        # 并行执行所有投票（优化：提高投票效率）
+        logger.info(f"🗳️ Running all voter turns in parallel ({len(eligible_voters)} voters)...")
+        voting_tasks = []
+        for agent_id in eligible_voters:
+            logger.info(f"🗳️ Requesting vote from {agent_id}")
+            task = asyncio.create_task(self._run_single_agent_voting_turn(agent_id))
+            voting_tasks.append((agent_id, task))
+
+        # 等待所有投票任务完成
+        logger.info(f"⏳ Waiting for all {len(voting_tasks)} agents to complete voting...")
+        for agent_id, task in voting_tasks:
+            voter_start_time = time.time()
+            try:
+                await task
+                voter_elapsed = time.time() - voter_start_time
+                logger.info(f"⏱️ {agent_id} voting turn took {voter_elapsed:.2f} seconds")
+            except Exception as e:
+                logger.error(f"❌ {agent_id} voting task failed: {str(e)}")
         
         # 最终验证：确保所有合格的分析师都投了票
         missing_votes = []
