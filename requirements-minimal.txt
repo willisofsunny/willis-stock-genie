@@ -1,0 +1,17 @@
+# 最小依賴集 - 僅用於啟動 Web 服務器
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+websockets==14.1
+python-multipart==0.0.20
+pydantic>=2.10.6
+python-dotenv==1.0.1
+loguru==0.7.3
+requests==2.32.3
+tomli==2.0.2
+aiohttp==3.11.17
+beautifulsoup4==4.13.3
+
+# AI 框架
+openai>=2.0.0
+tiktoken>=0.7.0
+mcp>=1.5.0

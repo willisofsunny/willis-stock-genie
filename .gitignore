@@ -1,0 +1,124 @@
+# ==========================================
+# FinGenius Git 忽略文件
+# ==========================================
+
+# ============ 環境變數 ============
+.env
+.env.local
+.env.*.local
+*.env
+
+# ============ Python ============
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ============ 虛擬環境 ============
+.venv/
+venv/
+ENV/
+env/
+.venv
+
+# ============ IDE ============
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ============ 日誌和臨時文件 ============
+*.log
+logs/
+log/
+*.tmp
+*.temp
+*.bak
+*.backup
+~*
+
+# ============ 資料庫 ============
+*.db
+*.sqlite
+*.sqlite3
+data/
+*.pkl
+*.pickle
+
+# ============ 快取 ============
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+
+# ============ 編譯文件 ============
+*.o
+*.a
+*.so
+*.dylib
+
+# ============ OS ============
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# ============ 部署相關 ============
+.render/
+render-build.log
+build.log
+
+# ============ Node 相關 ============
+node_modules/
+npm-debug.log
+package-lock.json
+
+# ============ 敏感信息 ============
+secret_keys.txt
+api_keys.txt
+credentials.json
+config_prod.json
+*.pem
+*.key
+*.crt
+
+# ============ 測試相關 ============
+.coverage
+coverage/
+htmlcov/
+
+# ============ 項目特定 ============
+report/
+reports/
+*.xlsx
+*.xls
+temp_data/
+debug_data/

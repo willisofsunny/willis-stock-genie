@@ -1,0 +1,28 @@
+# Global LLM configuration
+# 模型越好，生成的效果越好，建议使用最好的模型。
+[llm]
+api_type = "deepseek"  # DeepSeek API
+model = "deepseek-chat"        # The LLM model to use
+base_url = "https://api.deepseek.com/v1"  # DeepSeek API endpoint URL
+api_key = "sk-17f7a43b094e459890060a91d3f2c260"                    # Your DeepSeek API key
+max_tokens = 8192                            # Maximum number of tokens in the response (increased from 4096 to fix AI summary cutoff issues)
+temperature = 0.7                           # Controls randomness
+
+# Optional configuration for specific LLM models
+# [llm.deepseek_reasoner] #DEEPSEEK REASONER:
+# api_type = "deepseek"
+# model = "deepseek-reasoner"                 # DeepSeek 推理模型
+# base_url = "https://api.deepseek.com/v1"    # DeepSeek API 端點
+# api_key = "YOUR_DEEPSEEK_API_KEY"           # 您的 DeepSeek API 金鑰
+# max_tokens = 8192                           # 推理模型通常需要更多 token
+# temperature = 0.7                           # 控制隨機性
+
+# Optional configuration, Search settings.
+[search]
+# Search engine for agent to use. Default is "Google", can be set to "Baidu" or "DuckDuckGo" or "Bing"
+# 对于国内用户，建议使用以下搜索引擎优先级：
+# Baidu（百度）- 国内访问最稳定
+# Bing（必应）- 国际化且国内可用
+# Google - 作为备选（需要良好的国际网络）
+# DuckDuckGo - 作为备选（需要良好的国际网络）
+engine = "Google"

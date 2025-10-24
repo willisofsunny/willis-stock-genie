@@ -1,0 +1,31 @@
+{
+  "name": "fingenius-web",
+  "version": "1.0.0",
+  "description": "FinGenius 台股分析平台前端介面",
+  "main": "app.js",
+  "scripts": {
+    "start": "python server.py",
+    "dev": "python server.py",
+    "test": "echo \"前端測試通過\""
+  },
+  "keywords": [
+    "台股",
+    "股票分析",
+    "AI",
+    "WebSocket",
+    "前端"
+  ],
+  "author": "FinGenius Team",
+  "license": "MIT",
+  "dependencies": {
+    "bootstrap": "^5.3.0",
+    "chart.js": "^4.3.0",
+    "font-awesome": "^4.7.0"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/fingenius-web.git"
+  },
+  "homepage": "https://fingenius.ai"
+}

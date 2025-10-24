@@ -1,0 +1,3 @@
+# Cloudflare Pages 重定向配置
+# 將所有未匹配的請求重定向到 index.html（用於 SPA）
+/*    /index.html   200

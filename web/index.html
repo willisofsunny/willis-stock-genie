@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Willis Stock Genie</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <!-- 頁面標題 -->
+    <header class="bg-gradient text-white py-4 shadow-sm">
+        <div class="container">
+            <div class="row align-items-center justify-content-between">
+                <div class="col-auto">
+                    <h1 class="mb-0"><i class="fas fa-chart-line me-3"></i>Willis Stock Genie</h1>
+                    <p class="mb-0 mt-1 small opacity-90">AI-Powered Stock Analysis</p>
+                </div>
+                <div class="col-auto">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge" id="connectionStatus" title="連接狀態">
+                            <i class="fas fa-dot-circle me-1" style="font-size: 0.6em; animation: pulse 2s infinite;"></i>
+                            已連接
+                        </span>
+                        <button class="btn btn-light btn-sm" id="settingsBtn" data-bs-toggle="modal" data-bs-target="#apiConfigModal" title="API 配置設定">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要內容區域 -->
+    <main class="container my-4">
+        <!-- API 配置狀態卡片 -->
+        <div class="card mb-4 shadow-sm" id="apiConfigCard">
+            <div class="card-header bg-light border-0 d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0"><i class="fas fa-key me-2"></i>API 配置狀態</h5>
+                </div>
+                <div id="apiStatusBadge" class="d-flex align-items-center gap-2">
+                    <span class="badge bg-danger">
+                        <i class="fas fa-exclamation-circle me-1"></i>未配置
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <p class="mb-2">
+                            <strong>當前狀態：</strong>
+                            <span id="apiConfigStatus" class="text-muted">請配置 API KEY 以開始使用</span>
+                        </p>
+                        <div id="apiConfigDetails" class="small text-muted" style="display: none;">
+                            <p class="mb-1">
+                                <strong>提供商：</strong>
+                                <span id="apiProvider">-</span>
+                            </p>
+                            <p class="mb-1">
+                                <strong>模型：</strong>
+                                <span id="apiModel">-</span>
+                            </p>
+                            <p class="mb-0">
+                                <strong>溫度：</strong>
+                                <span id="apiTemp">-</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-primary" id="apiConfigBtn" data-bs-toggle="modal" data-bs-target="#apiConfigModal">
+                            <i class="fas fa-cog me-1"></i>配置 API
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 股票輸入區域 -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-light border-0">
+                <h5 class="mb-0"><i class="fas fa-magnifying-glass me-2"></i>股票代碼分析</h5>
+            </div>
+            <div class="card-body">
+                <form id="analysisForm">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="stockCode" class="form-label fw-semibold">
+                                <i class="fas fa-barcode me-1"></i>輸入股票代碼
+                                <small class="text-muted">(4-6 位數字)</small>
+                            </label>
+                            <div class="input-group input-group-lg">
+                                <input type="text" class="form-control" id="stockCode"
+                                       placeholder="例如：2330 (台積電)" maxlength="6" required
+                                       inputmode="numeric" pattern="[0-9]{4,6}"
+                                       aria-label="股票代碼"
+                                       aria-describedby="stockInfo">
+                                <button class="btn btn-outline-secondary" type="button" id="validateBtn"
+                                        title="驗證股票代碼" aria-label="驗證股票代碼">
+                                    <i class="fas fa-check me-1"></i>驗證
+                                </button>
+                            </div>
+                            <div class="form-text mt-2" id="stockInfo" role="status" aria-live="polite"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary btn-lg w-100" id="analyzeBtn"
+                                    title="開始進行 AI 分析" aria-label="開始進行 AI 分析">
+                                <i class="fas fa-play me-2"></i>開始分析
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 分析進度區域 -->
+        <div class="card mb-4 shadow-sm" id="progressCard" style="display: none;" role="region" aria-label="分析進度">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center border-0">
+                <h5 class="mb-0"><i class="fas fa-spinner fa-spin me-2"></i>AI 分析進度</h5>
+                <button type="button" class="btn btn-sm btn-light" id="cancelBtn" onclick="app.cancelAnalysis()"
+                        title="取消當前分析" aria-label="取消當前分析">
+                    <i class="fas fa-circle-xmark me-1"></i>取消
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label for="progressBar" class="small text-muted fw-semibold">分析進度</label>
+                        <small id="progressPercent" class="text-primary fw-semibold" aria-live="polite">0%</small>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar" style="width: 0%" id="progressBar"
+                             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
+                             aria-label="分析進度"></div>
+                    </div>
+                </div>
+                <div id="progressText" class="text-muted small mb-3" role="status" aria-live="polite">正在準備分析...</div>
+                <div class="mt-4">
+                    <h6 class="small fw-semibold text-muted mb-2">AI 代理進度</h6>
+                    <div class="row g-2" id="agentProgress">
+                        <!-- Agent 進度將動態插入 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分析結果區域 -->
+        <div class="card shadow-sm" id="resultCard" style="display: none;" role="region" aria-label="分析結果">
+            <div class="card-header bg-success text-white border-0">
+                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>分析結果詳情</h5>
+            </div>
+            <div class="card-body">
+                <!-- 導航標籤 -->
+                <ul class="nav nav-tabs nav-fill" id="resultTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab"
+                                data-bs-target="#overview" type="button" role="tab" aria-selected="true">
+                            <i class="fas fa-eye me-1"></i>總覽
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="technical-tab" data-bs-toggle="tab"
+                                data-bs-target="#technical" type="button" role="tab" aria-selected="false">
+                            <i class="fas fa-chart-area me-1"></i>技術分析
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="institutional-tab" data-bs-toggle="tab"
+                                data-bs-target="#institutional" type="button" role="tab" aria-selected="false">
+                            <i class="fas fa-building me-1"></i>三大法人
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="chip-tab" data-bs-toggle="tab"
+                                data-bs-target="#chip" type="button" role="tab" aria-selected="false">
+                            <i class="fas fa-microchip me-1"></i>籌碼分析
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="sentiment-tab" data-bs-toggle="tab"
+                                data-bs-target="#sentiment" type="button" role="tab" aria-selected="false">
+                            <i class="fas fa-comment me-1"></i>輿情分析
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="risk-tab" data-bs-toggle="tab"
+                                data-bs-target="#risk" type="button" role="tab" aria-selected="false">
+                            <i class="fas fa-exclamation-triangle me-1"></i>風險評估
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="bigdeal-tab" data-bs-toggle="tab"
+                                data-bs-target="#bigdeal" type="button" role="tab" aria-selected="false">
+                            <i class="fas fa-dollar-sign me-1"></i>大額交易
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="battle-tab" data-bs-toggle="tab"
+                                data-bs-target="#battle" type="button" role="tab" aria-selected="false">
+                            <i class="fas fa-gavel me-1"></i>辯論結果
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- 標籤內容 -->
+                <div class="tab-content mt-4" id="resultContent">
+                    <div class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <div class="card border-0 bg-light h-100">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <i class="fas fa-info-circle me-2 text-info"></i>股票基本資訊
+                                        </h6>
+                                        <div id="stockBasicInfo" class="analysis-content"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-0 bg-light h-100">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <i class="fas fa-lightbulb me-2 text-warning"></i>AI 綜合評估
+                                        </h6>
+                                        <div id="aiSummary" class="analysis-content"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="technical" role="tabpanel" aria-labelledby="technical-tab">
+                        <div class="row g-4">
+                            <div class="col-md-8">
+                                <div class="chart-container">
+                                    <canvas id="technicalChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div id="technicalAnalysis" class="analysis-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="institutional" role="tabpanel" aria-labelledby="institutional-tab">
+                        <div class="row g-4">
+                            <div class="col-md-8">
+                                <div class="chart-container">
+                                    <canvas id="institutionalChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div id="institutionalAnalysis" class="analysis-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="chip" role="tabpanel" aria-labelledby="chip-tab">
+                        <div class="row g-4">
+                            <div class="col-md-8">
+                                <div class="chart-container">
+                                    <canvas id="chipChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div id="chipAnalysis" class="analysis-content"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="sentiment" role="tabpanel" aria-labelledby="sentiment-tab">
+                        <div id="sentimentAnalysis" class="analysis-content"></div>
+                    </div>
+                    <div class="tab-pane fade" id="risk" role="tabpanel" aria-labelledby="risk-tab">
+                        <div id="riskAnalysis" class="analysis-content"></div>
+                    </div>
+                    <div class="tab-pane fade" id="bigdeal" role="tabpanel" aria-labelledby="bigdeal-tab">
+                        <div id="bigDealAnalysis" class="analysis-content"></div>
+                    </div>
+                    <div class="tab-pane fade" id="battle" role="tabpanel" aria-labelledby="battle-tab">
+                        <div id="battleResults" style="display: none;">
+                            <!-- Battle results will be dynamically inserted here -->
+                        </div>
+                        <div id="noBattleResults" class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            尚未進行 AI 專家辯論分析。完整分析將包含 6 位 AI 專家的辯論與投票結果。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- API 配置模態對話框 -->
+    <div class="modal fade" id="apiConfigModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-key me-2"></i>API 配置設定</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- LLM 提供商選擇 -->
+                    <fieldset class="mb-4">
+                        <legend class="form-label fw-bold mb-2">
+                            <i class="fas fa-network-wired me-2"></i>選擇 LLM 提供商
+                        </legend>
+                        <div class="btn-group w-100" role="group" aria-label="LLM 提供商選擇">
+                            <input type="radio" class="btn-check" name="llmProvider" id="deepseek" value="deepseek" checked aria-label="DeepSeek">
+                            <label class="btn btn-outline-primary" for="deepseek">
+                                <i class="fas fa-rocket me-1"></i>DeepSeek
+                            </label>
+
+                            <input type="radio" class="btn-check" name="llmProvider" id="gemini" value="gemini" aria-label="Google Gemini">
+                            <label class="btn btn-outline-primary" for="gemini">
+                                <i class="fas fa-gem me-1"></i>Google Gemini
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <!-- DeepSeek 配置 -->
+                    <div id="deepseekConfig" class="config-section">
+                        <div class="alert alert-info small mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            DeepSeek API：<a href="https://platform.deepseek.com" target="_blank" class="alert-link">獲取 API KEY</a>
+                        </div>
+                        <div class="mb-3">
+                            <label for="deepseekApiKey" class="form-label">API KEY</label>
+                            <input type="password" class="form-control" id="deepseekApiKey" placeholder="sk-...">
+                        </div>
+                        <div class="mb-3">
+                            <label for="deepseekModel" class="form-label">模型</label>
+                            <select class="form-select" id="deepseekModel">
+                                <option value="deepseek-chat" selected>deepseek-chat</option>
+                                <option value="deepseek-reasoner">deepseek-reasoner</option>
+                                <option value="deepseek-coder">deepseek-coder</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Google Gemini 配置 -->
+                    <div id="geminiConfig" class="config-section" style="display: none;">
+                        <div class="alert alert-info small mb-3">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Google Gemini API：<a href="https://aistudio.google.com/app/apikey" target="_blank" class="alert-link">獲取 API KEY</a>
+                        </div>
+                        <div class="mb-3">
+                            <label for="geminiApiKey" class="form-label">API KEY</label>
+                            <input type="password" class="form-control" id="geminiApiKey" placeholder="AIzaSy...">
+                        </div>
+                        <div class="mb-3">
+                            <label for="geminiModel" class="form-label">模型</label>
+                            <select class="form-select" id="geminiModel">
+                                <option value="gemini-2.0-flash" selected>gemini-2.0-flash</option>
+                                <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+                                <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 通用設置 -->
+                    <fieldset class="mb-4">
+                        <legend class="form-label fw-bold mb-2">
+                            <i class="fas fa-sliders-h me-2"></i>模型參數
+                        </legend>
+                        <div class="mb-3">
+                            <label for="temperature" class="form-label d-flex justify-content-between align-items-center">
+                                <span>
+                                    <i class="fas fa-temperature-half me-2"></i>溫度參數
+                                    <small class="text-muted">(0.0 - 2.0)</small>
+                                </span>
+                                <span class="badge bg-secondary" id="tempValue">0.7</span>
+                            </label>
+                            <input type="range" class="form-range" id="temperature" value="0.7" min="0" max="2" step="0.1"
+                                   aria-label="溫度參數" aria-valuenow="0.7" aria-valuemin="0" aria-valuemax="2">
+                            <div class="small text-muted mt-2">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>更穩定</span>
+                                    <span>更創意</span>
+                                </div>
+                                <p class="mb-0">
+                                    <i class="fas fa-circle-info me-1"></i>
+                                    較低值(0.0-0.7)：更穩定和一致 | 較高值(1.3-2.0)：更創意和多樣
+                                </p>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <hr>
+
+                    <!-- 保存本地 -->
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="saveLocal" checked>
+                        <label class="form-check-label" for="saveLocal">
+                            <i class="fas fa-floppy-disk me-1"></i>保存配置到本地存儲
+                        </label>
+                        <small class="d-block text-muted mt-1">配置將被保存在您的瀏覽器中，下次打開時自動加載</small>
+                    </div>
+
+                    <!-- 信息提示 -->
+                    <div class="alert alert-info small mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Max Tokens：</strong>使用後端默認值 (4096)，可在 config.toml 中調整
+                    </div>
+
+                    <!-- 安全提示 -->
+                    <div class="alert alert-warning small mb-0">
+                        <i class="fas fa-shield-alt me-1"></i>
+                        <strong>安全提示：</strong>API KEY 只保存在您的瀏覽器本地存儲中，不會發送到任何遠程伺服器。
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-warning" id="testApiBtn">
+                        <i class="fas fa-flask me-1"></i>測試 API
+                    </button>
+                    <button type="button" class="btn btn-primary" id="saveApiBtn">
+                        <i class="fas fa-save me-1"></i>保存設定
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 頁面底部 -->
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container text-center">
+            <p class="mb-0">
+                <i class="fas fa-brain me-2"></i>
+                Willis Stock Genie - AI-Powered Smart Investment Assistant
+            </p>
+            <p class="mb-0 mt-2 small text-muted">
+                本平台僅供參考，不構成任何投資建議。投資有風險，決策需謹慎。
+            </p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="config.js"></script>
+    <script src="app-improved.js"></script>
+</body>
+</html>
