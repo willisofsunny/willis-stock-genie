@@ -9,7 +9,6 @@ const CONFIG = {
                 return 'http://localhost:8000';
             }
             // 生產環境 - 使用 Render 部署的後端
-            // 請在部署後替換為你的實際 Render API 地址
             return 'https://willis-stock-genie-api.onrender.com';
         },
 
