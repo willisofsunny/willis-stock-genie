@@ -30,6 +30,10 @@ numpy==2.3.3
 # 台股數據源
 yfinance==0.2.66
 twstock==1.4.0
+finmind==1.8.2
+
+# 搜索引擎
+baidusearch==1.0.3
 
 # 其他工具
 beautifulsoup4==4.13.3
