@@ -30,3 +30,5 @@ numpy
 tomli==2.0.2
 aiohttp==3.11.17
 beautifulsoup4==4.13.3
+# 搜索引擎
+duckduckgo-search==7.3.1

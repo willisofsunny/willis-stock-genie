@@ -34,6 +34,7 @@ finmind==1.8.2
 
 # 搜索引擎
 baidusearch==1.0.3
+duckduckgo-search==7.3.1
 
 # 其他工具
 beautifulsoup4==4.13.3
