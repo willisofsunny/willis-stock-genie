@@ -180,9 +180,16 @@ class WillisStockGenieWebServer:
                 'message': '生成分析報告'
             })
 
-            report_paths = await self._generate_reports(
-                stock_code, research_results, battle_results
-            )
+            # 添加報告生成超時機制（最多等待 30 秒）
+            try:
+                report_paths = await asyncio.wait_for(
+                    self._generate_reports(stock_code, research_results, battle_results),
+                    timeout=30.0
+                )
+            except asyncio.TimeoutError:
+                self.logger.warning(f"⚠️ 報告生成超時（30秒），跳過 HTML 報告生成")
+                # 即使超時，也返回空的路徑字典，後續流程會繼續
+                report_paths = {}
 
             self.logger.info(f"📋 報告生成完成，準備發送 phase_completed 消息")
 
