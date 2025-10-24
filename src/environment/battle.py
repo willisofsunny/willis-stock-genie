@@ -433,12 +433,12 @@ class BattleEnvironment(BaseEnvironment):
         
         agent = self.agents[agent_id]
         original_max_steps = agent.max_steps
-        max_retries = 2  # 允许重试2次
-        
+        max_retries = 1  # 減少重試次數加快辯論（優化：從2降到1）
+
         for attempt in range(max_retries + 1):
             try:
-                # 限制步数为2，给agent更多机会
-                agent.max_steps = 2
+                # 限制步数为1，加快辯論速度（優化）
+                agent.max_steps = 1
                 agent.current_step = 0
                 agent.state = AgentState.IDLE
                 
@@ -535,12 +535,12 @@ class BattleEnvironment(BaseEnvironment):
         
         agent = self.agents[agent_id]
         original_max_steps = agent.max_steps
-        max_retries = 5  # 增加重试次数，确保投票成功
-        
+        max_retries = 3  # 減少重試次數加快投票（優化：從5降到3）
+
         for attempt in range(max_retries + 1):
             try:
-                # 限制步数为2，给agent更多机会
-                agent.max_steps = 2
+                # 限制步数为1，加快投票速度（優化）
+                agent.max_steps = 1
                 agent.current_step = 0
                 agent.state = AgentState.IDLE
                 
