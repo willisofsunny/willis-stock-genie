@@ -9,6 +9,13 @@ class FinGeniusApp {
         this.charts = {};
         this.analysisStartTime = null;
         this.connectionStatus = 'disconnected';
+        this.analysisCompleted = false;
+        this.isBattleComplete = false;
+        this.awaitingBattleCompletion = false;
+        this.resultsDisplayed = false;
+        this.lastAnalysisElapsedTime = 0;
+        this.analysisHasResults = false;
+        this.pendingSuccessToast = false;
 
         // API 配置相關
         this.apiConfig = {
@@ -503,8 +510,7 @@ class FinGeniusApp {
         const activeAgents = document.querySelectorAll('.agent-card.active').length;
         const progress = (completedAgents / totalAgents) * 100;
 
-        document.getElementById('progressBar').style.width = `${progress}%`;
-        document.getElementById('progressPercent').textContent = `${Math.round(progress)}%`;
+        this.setProgress(progress);
 
         // 显示详细的进度信息用于调试
         const agentStatuses = [];
@@ -523,6 +529,23 @@ class FinGeniusApp {
             console.log('🎯 All agents completed! Ready for battle phase.');
         } else if (activeAgents === 0 && completedAgents < totalAgents) {
             console.warn(`⚠️ No active agents but only ${completedAgents}/${totalAgents} completed. Waiting for more agents...`);
+        }
+    }
+
+    setProgress(percent, text = null) {
+        const clampedPercent = Math.max(0, Math.min(percent, 100));
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressText = document.getElementById('progressText');
+
+        if (progressBar) {
+            progressBar.style.width = `${clampedPercent}%`;
+        }
+        if (progressPercent) {
+            progressPercent.textContent = `${Math.round(clampedPercent)}%`;
+        }
+        if (text !== null && progressText) {
+            progressText.textContent = text;
         }
     }
 
@@ -592,7 +615,7 @@ class FinGeniusApp {
     }
 
     handleBattleStarted(message) {
-        document.getElementById('progressText').textContent = '⚖️ AI 專家辯論進行中...';
+        this.setProgress(80, '⚖️ AI 專家辯論進行中...');
         this.showToast('⚖️ 6 位 AI 專家正在進行多輪辯論投票', 'info');
 
         const battleCard = document.getElementById('battleCard');
@@ -603,6 +626,11 @@ class FinGeniusApp {
 
     handleBattleResults(message) {
         const { final_decision, vote_count } = message;
+        const wasAwaitingBattle = this.awaitingBattleCompletion;
+
+        this.isBattleComplete = true;
+        this.awaitingBattleCompletion = false;
+        this.setProgress(95, '⚖️ 辯論完成，整理最終報告...');
 
         if (!this.analysisResults) {
             this.analysisResults = {};
@@ -615,6 +643,10 @@ class FinGeniusApp {
         const decisionIcon = final_decision.includes('看多') ? '📈' :
                             final_decision.includes('看空') ? '📉' : '➡️';
         this.showToast(`${decisionIcon} AI 辯論完成：${final_decision}`, 'success');
+
+        if (this.analysisCompleted && (wasAwaitingBattle || !this.resultsDisplayed)) {
+            this.showAnalysisResults();
+        }
     }
 
     handleAnalysisComplete(message) {
@@ -627,20 +659,34 @@ class FinGeniusApp {
         this.analysisResults = message.results;
         this.connectionStatus = 'connected';
         this.updateConnectionStatus();
+        this.analysisCompleted = true;
 
         // 計算分析耗時
         const elapsedTime = this.analysisStartTime ?
             Math.round((Date.now() - this.analysisStartTime) / 1000) : 0;
 
         const hasResults = this.analysisResults && Object.keys(this.analysisResults).length > 0;
+        this.analysisHasResults = hasResults;
+        this.lastAnalysisElapsedTime = elapsedTime;
 
-        // Always attempt to render the result card so the UI transitions after分析完成
-        this.showAnalysisResults();
+        if (this.isBattleComplete) {
+            this.showAnalysisResults();
+        } else {
+            this.awaitingBattleCompletion = true;
+            this.setProgress(90, '📊 生成最終報告，等待辯論結果...');
+            this.showToast('⌛ 正在等待辯論最終結果...', 'info');
+            this.pendingSuccessToast = true;
+        }
 
         if (!hasResults) {
             this.showToast('⚠ 分析完成，但未獲取到有效數據，將顯示示範結果', 'warning');
-        } else {
+            this.pendingSuccessToast = false;
+        } else if (this.isBattleComplete) {
             this.showToast(`✓ 分析完成！耗時 ${elapsedTime} 秒`, 'success');
+        }
+
+        if (this.isBattleComplete) {
+            this.pendingSuccessToast = false;
         }
 
         // 重新啟用分析按鈕
@@ -835,8 +881,14 @@ class FinGeniusApp {
     }
 
     resetProgress() {
-        document.getElementById('progressBar').style.width = '0%';
-        document.getElementById('progressText').textContent = '⏳ 準備開始分析...';
+        this.analysisCompleted = false;
+        this.isBattleComplete = false;
+        this.awaitingBattleCompletion = false;
+        this.resultsDisplayed = false;
+        this.lastAnalysisElapsedTime = 0;
+        this.analysisHasResults = false;
+        this.pendingSuccessToast = false;
+        this.setProgress(0, '⏳ 準備開始分析...');
 
         const agents = [
             { id: 'sentiment', name: '輿情分析', icon: 'fas fa-comments' },
@@ -897,10 +949,8 @@ class FinGeniusApp {
             iconElement.innerHTML = '<div class="loading-spinner"></div>';
 
             const agentName = agentCard.querySelector('.fw-bold').textContent;
-            document.getElementById('progressText').textContent = `🔍 ${agentName}正在分析中...`;
-
             progress = ((currentIndex + 0.5) / agents.length) * 70; // 70% for research phase
-            document.getElementById('progressBar').style.width = `${progress}%`;
+            this.setProgress(progress, `🔍 ${agentName}正在分析中...`);
 
             const analysisTime = 2000 + Math.random() * 2000;
 
@@ -911,7 +961,7 @@ class FinGeniusApp {
                 iconElement.innerHTML = '<i class="fas fa-check-circle success-icon"></i>';
 
                 progress = ((currentIndex + 1) / agents.length) * 70;
-                document.getElementById('progressBar').style.width = `${progress}%`;
+                this.setProgress(progress);
 
                 currentIndex++;
                 processNextAgent();
@@ -922,23 +972,38 @@ class FinGeniusApp {
     }
 
     simulateBattlePhase() {
-        document.getElementById('progressText').textContent = '⚖️ AI 專家辯論進行中...';
-        document.getElementById('progressBar').style.width = '80%';
+        this.setProgress(80, '⚖️ AI 專家辯論進行中...');
         this.showToast('⚖️ 6 位 AI 專家正在進行多輪辯論投票', 'info');
 
         setTimeout(() => {
-            document.getElementById('progressBar').style.width = '90%';
-            document.getElementById('progressText').textContent = '📊 生成分析報告...';
+            this.setProgress(90, '📊 生成分析報告...');
 
             setTimeout(() => {
+                this.isBattleComplete = true;
+                this.analysisCompleted = true;
                 this.showAnalysisResults();
             }, 2000);
         }, 3000);
     }
 
     showAnalysisResults() {
-        document.getElementById('progressBar').style.width = '100%';
-        document.getElementById('progressText').textContent = '✅ 分析完成！';
+        if (this.resultsDisplayed) {
+            return;
+        }
+        this.resultsDisplayed = true;
+        this.awaitingBattleCompletion = false;
+
+        this.setProgress(100, '✅ 分析完成！');
+
+        if (this.pendingSuccessToast && this.analysisHasResults) {
+            const elapsed = this.lastAnalysisElapsedTime || 0;
+            const toastMessage = elapsed > 0
+                ? `✓ 分析完成！耗時 ${elapsed} 秒`
+                : '✓ 分析完成！';
+            this.showToast(toastMessage, 'success');
+            this.pendingSuccessToast = false;
+        }
+        this.pendingSuccessToast = false;
 
         setTimeout(() => {
             document.getElementById('progressCard').style.display = 'none';
