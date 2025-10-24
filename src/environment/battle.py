@@ -211,23 +211,32 @@ class BattleEnvironment(BaseEnvironment):
 
     async def run(self, report: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Run the battle environment with the given research report."""
+        import time
+        total_start_time = time.time()
+
         try:
             # Reset counters
             self.tool_calls = 0
             self.llm_calls = 0
-            
+
             # Send initial context to all agents
+            context_start_time = time.time()
             await self._send_initial_context(report)
-            
+            context_elapsed = time.time() - context_start_time
+            logger.info(f"⏱️ Initial context sending took {context_elapsed:.2f} seconds")
+
             # Run structured debate
             await self._run_structured_debate()
-            
+
             # Run final voting
             await self._run_final_voting()
 
             # Return results
+            total_elapsed = time.time() - total_start_time
+            logger.info(f"⏱️ ===== TOTAL BATTLE EXECUTION TIME: {total_elapsed:.2f} seconds =====")
+
             return self._prepare_results()
-            
+
         except Exception as e:
             logger.error(f"Battle environment execution failed: {str(e)}")
             return None
@@ -354,12 +363,16 @@ class BattleEnvironment(BaseEnvironment):
 
     async def _run_structured_debate(self) -> None:
         """Run structured debate rounds with cumulative context passing."""
+        import time
+        debate_start_time = time.time()
+
         # 简化为单轮辩论，避免无限循环
         self.state.current_round = 1
         logger.info(f"🗣️ Starting single round debate with {len(self.state.agent_order)} agents")
-        
+
         # 每个专家发言一次
         for speaker_index, agent_id in enumerate(self.state.agent_order):
+            agent_start_time = time.time()
             if not self.state.can_agent_speak(agent_id):
                 logger.warning(f"⚠️ {agent_id} cannot speak (terminated)")
                 continue
@@ -373,7 +386,15 @@ class BattleEnvironment(BaseEnvironment):
             
             # 执行单个专家的发言轮次
             await self._run_single_agent_debate_turn(agent_id)
-    
+
+            # 記錄每個專家發言耗時
+            agent_elapsed = time.time() - agent_start_time
+            logger.info(f"⏱️ {agent_id} debate turn took {agent_elapsed:.2f} seconds")
+
+        # 記錄整個辯論階段耗時
+        debate_elapsed = time.time() - debate_start_time
+        logger.info(f"⏱️ ===== Total debate phase took {debate_elapsed:.2f} seconds =====")
+
     async def _send_debate_instruction(self, current_agent_id: str, speaker_index: int, round_num: int) -> None:
         """Send specific debate instruction to current speaker."""
         # 构建前面发言的总结
@@ -427,10 +448,12 @@ class BattleEnvironment(BaseEnvironment):
 
     async def _run_single_agent_debate_turn(self, agent_id: str) -> None:
         """Run a single agent's debate turn with limited steps and retry mechanism."""
+        import time
+
         if agent_id not in self.agents:
             logger.error(f"❌ Agent {agent_id} not found in agents")
             return
-        
+
         agent = self.agents[agent_id]
         original_max_steps = agent.max_steps
         max_retries = 1  # 減少重試次數加快辯論（優化：從2降到1）
@@ -441,11 +464,13 @@ class BattleEnvironment(BaseEnvironment):
                 agent.max_steps = 1
                 agent.current_step = 0
                 agent.state = AgentState.IDLE
-                
+
                 # 执行单步
                 logger.info(f"🎤 {agent_id} speaking (attempt {attempt + 1}/{max_retries + 1})...")
+                run_start_time = time.time()
                 result = await agent.run(f"现在是你的发言时间，请立即使用Battle.speak表达观点！")
-                logger.info(f"✅ {agent_id} completed speaking turn")
+                run_elapsed = time.time() - run_start_time
+                logger.info(f"✅ {agent_id} completed speaking turn (agent.run took {run_elapsed:.2f}s)")
                 break  # 成功则退出重试循环
                 
             except Exception as e:
@@ -461,8 +486,11 @@ class BattleEnvironment(BaseEnvironment):
 
     async def _run_final_voting(self) -> None:
         """Run final voting phase."""
+        import time
+        voting_start_time = time.time()
+
         logger.info("🗳️ Starting final voting phase")
-        
+
         # 获取所有应该投票的分析师
         eligible_voters = []
         for agent_id in self.state.active_agents.keys():
@@ -475,15 +503,21 @@ class BattleEnvironment(BaseEnvironment):
         
         # 为所有合格的分析师发送投票指令
         for agent_id in eligible_voters:
+            voter_start_time = time.time()
+
             # 检查是否已有最终投票
             if agent_id in self.state.final_votes:
                 logger.info(f"✅ {agent_id} has final vote: {self.state.final_votes[agent_id]} - allowing update")
             else:
                 logger.info(f"🗳️ {agent_id} needs to cast final vote")
-            
+
             logger.info(f"🗳️ Requesting vote from {agent_id}")
             await self._send_voting_instruction(agent_id)
             await self._run_single_agent_voting_turn(agent_id)
+
+            # 記錄每個投票者耗時
+            voter_elapsed = time.time() - voter_start_time
+            logger.info(f"⏱️ {agent_id} voting turn took {voter_elapsed:.2f} seconds")
         
         # 最终验证：确保所有合格的分析师都投了票
         missing_votes = []
@@ -497,7 +531,11 @@ class BattleEnvironment(BaseEnvironment):
             for agent_id in missing_votes:
                 logger.warning(f"🔄 Final attempt to get vote from {agent_id}")
                 await self._run_single_agent_voting_turn(agent_id)
-        
+
+        # 記錄整個投票階段耗時
+        voting_elapsed = time.time() - voting_start_time
+        logger.info(f"⏱️ ===== Total voting phase took {voting_elapsed:.2f} seconds =====")
+
         logger.info(f"✅ Final voting phase completed. Total votes: {len(self.state.final_votes)}")
 
     async def _send_voting_instruction(self, agent_id: str) -> None:
@@ -529,10 +567,12 @@ class BattleEnvironment(BaseEnvironment):
 
     async def _run_single_agent_voting_turn(self, agent_id: str) -> None:
         """Run a single agent's voting turn with enhanced retry mechanism."""
+        import time
+
         if agent_id not in self.agents:
             logger.error(f"❌ Agent {agent_id} not found in agents")
             return
-        
+
         agent = self.agents[agent_id]
         original_max_steps = agent.max_steps
         max_retries = 3  # 減少重試次數加快投票（優化：從5降到3）
@@ -543,13 +583,15 @@ class BattleEnvironment(BaseEnvironment):
                 agent.max_steps = 1
                 agent.current_step = 0
                 agent.state = AgentState.IDLE
-                
+
                 logger.info(f"🗳️ {agent_id} voting (attempt {attempt + 1}/{max_retries + 1})...")
+                run_start_time = time.time()
                 result = await agent.run("请立即投票！")
-                
+                run_elapsed = time.time() - run_start_time
+
                 # 检查是否成功投票（使用新的final_votes机制）
                 if agent_id in self.state.final_votes:
-                    logger.info(f"✅ {agent_id} successfully voted: {self.state.final_votes[agent_id]}")
+                    logger.info(f"✅ {agent_id} successfully voted: {self.state.final_votes[agent_id]} (agent.run took {run_elapsed:.2f}s)")
                     break
                 else:
                     logger.warning(f"⚠️ {agent_id} completed run but no vote recorded")
