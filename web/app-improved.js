@@ -387,6 +387,9 @@ class FinGeniusApp {
             case 'battle_started':
                 this.handleBattleStarted(message);
                 break;
+            case 'battle_progress':
+                this.handleBattleProgress(message);
+                break;
             case 'battle_results':
                 this.handleBattleResults(message);
                 break;
@@ -622,6 +625,16 @@ class FinGeniusApp {
         if (battleCard) {
             battleCard.style.display = 'block';
         }
+    }
+
+    handleBattleProgress(message) {
+        /**
+         * 處理 Battle 進度消息（心跳）
+         * 保持 WebSocket 連接活躍
+         */
+        console.log('⚖️ 辯論進度:', message.message);
+        // 可以在這裡更新進度條或顯示訊息
+        // 只是確保連接保持活躍
     }
 
     handleBattleResults(message) {

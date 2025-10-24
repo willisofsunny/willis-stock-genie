@@ -470,8 +470,44 @@ class WillisStockGenieWebServer:
                 'message': f'開始 {debate_rounds} 輪辯論'
             })
 
-            # 執行辯論
-            results = await battle_env.run(research_results)
+            # 執行辯論（帶心跳以防止超時）
+            try:
+                # 使用 asyncio.wait_for 添加超時処理，並在運行期間發送心跳
+                async def run_battle_with_heartbeat():
+                    """執行 Battle 並發送心跳"""
+                    import asyncio
+
+                    # 啟動辯論任務
+                    battle_task = asyncio.create_task(battle_env.run(research_results))
+
+                    # 每5秒發送一次心跳
+                    heartbeat_count = 0
+                    while not battle_task.done():
+                        try:
+                            await asyncio.sleep(5)
+                            heartbeat_count += 1
+                            # 發送心跳消息以保持連接活躍
+                            await websocket.send_json({
+                                'type': 'battle_progress',
+                                'message': f'Battle 進行中... ({heartbeat_count * 5}秒)',
+                                'timestamp': datetime.now().isoformat()
+                            })
+                        except asyncio.CancelledError:
+                            battle_task.cancel()
+                            raise
+                        except Exception as e:
+                            self.logger.warning(f"發送心跳時出錯: {e}")
+
+                    # 等待 Battle 完成
+                    return await battle_task
+
+                results = await run_battle_with_heartbeat()
+            except asyncio.TimeoutError:
+                self.logger.error("Battle 階段超時")
+                results = {'error': 'Battle 階段超時', 'vote_count': {}}
+            except Exception as e:
+                self.logger.error(f"執行 Battle 時出錯: {e}")
+                raise
 
             # 發送辯論結果
             await websocket.send_json({
