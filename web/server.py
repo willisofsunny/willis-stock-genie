@@ -509,12 +509,14 @@ class WillisStockGenieWebServer:
                 self.logger.error(f"執行 Battle 時出錯: {e}")
                 raise
 
-            # 發送辯論結果
+            # 發送辯論結果（包含辯論討論內容）
             await websocket.send_json({
                 'type': 'battle_results',
                 'final_decision': results.get('final_decision'),
                 'vote_count': results.get('vote_count'),
-                'debate_rounds': results.get('debate_rounds')
+                'debate_rounds': results.get('debate_rounds'),
+                'debate_history': results.get('debate_history', []),  # 新增：辯論討論歷史
+                'battle_history': results.get('battle_history', [])    # 新增：詳細戰鬥事件歷史
             })
 
             await research_env.cleanup()

@@ -638,7 +638,7 @@ class FinGeniusApp {
     }
 
     handleBattleResults(message) {
-        const { final_decision, vote_count } = message;
+        const { final_decision, vote_count, debate_history, battle_history } = message;
         const wasAwaitingBattle = this.awaitingBattleCompletion;
 
         this.isBattleComplete = true;
@@ -650,7 +650,9 @@ class FinGeniusApp {
         }
         this.analysisResults.battle = {
             final_decision,
-            vote_count
+            vote_count,
+            debate_history: debate_history || [],      // 新增：辯論討論歷史
+            battle_history: battle_history || []        // 新增：詳細戰鬥事件歷史
         };
 
         const decisionIcon = final_decision.includes('看多') ? '📈' :
@@ -1788,13 +1790,36 @@ class FinGeniusApp {
 
         if (!battleContainer) return;
 
-        const { final_decision, vote_count } = battleData;
+        const { final_decision, vote_count, debate_history = [], battle_history = [] } = battleData;
 
         const decisionClass = final_decision.includes('看多') || final_decision === 'bullish' ? 'success' :
                              final_decision.includes('看空') || final_decision === 'bearish' ? 'danger' : 'warning';
 
         const decisionIcon = final_decision.includes('看多') || final_decision === 'bullish' ? '📈' :
                             final_decision.includes('看空') || final_decision === 'bearish' ? '📉' : '➡️';
+
+        // 生成辯論討論內容
+        const debateDiscussionHTML = debate_history && debate_history.length > 0 ? `
+            <div class="mt-4 pt-4 border-top">
+                <h6 class="mb-3">🗣️ 辯論討論摘錄</h6>
+                <div class="debate-discussion" style="max-height: 400px; overflow-y: auto; padding: 12px; background-color: #f8f9fa; border-radius: 6px;">
+                    ${debate_history.map((item, index) => {
+                        const speaker = item.speaker || item.agent_id || '專家';
+                        const content = item.content || item.message || '';
+                        const round = item.round || '';
+
+                        return `
+                            <div class="debate-entry mb-2 p-2" style="background-color: white; border-left: 3px solid #007bff; padding-left: 12px !important;">
+                                <strong style="color: #0066cc;">${speaker}</strong>${round ? ` (第 ${round} 輪)` : ''}
+                                <p class="mb-0 mt-1" style="font-size: 0.95rem; color: #333;">
+                                    ${content.substring(0, 200)}${content.length > 200 ? '...' : ''}
+                                </p>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        ` : '';
 
         const battleHTML = `
             <div class="analysis-content">
@@ -1833,6 +1858,7 @@ class FinGeniusApp {
                         }).join('')}
                     </div>
                 ` : ''}
+                ${debateDiscussionHTML}
                 <div class="alert alert-light mt-4">
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
